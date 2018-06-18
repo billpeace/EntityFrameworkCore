@@ -3808,5 +3808,50 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             await AssertSingleResult<Customer>(cs => cs.Cast<Customer>().CountAsync());
         }
+
+        [ConditionalFact]
+        public virtual async Task Client_where_GroupBy_Group_ordering_works()
+        {
+            List<Order> orders = null;
+            using (var context = CreateContext())
+            {
+                orders = context.Orders.Where(o => o.OrderID < 10300).ToList();
+            }
+
+            await AssertQuery<Order>(
+                os => from o in os
+                      where orders.Select(t => t.OrderID).Contains(o.OrderID)
+                      group o by o.CustomerID into g
+                      orderby g.Key
+                      select g.OrderByDescending(x => x.OrderID),
+                assertOrder: true,
+                elementAsserter: CollectionAsserter<Order>(elementAsserter: (e, a) => Assert.Equal(e.OrderID, a.OrderID)));
+        }
+
+        [ConditionalFact]
+        public virtual async Task Client_where_GroupBy_Group_ordering_works_2()
+        {
+            await AssertQuery<Order>(
+                os => from o in os
+                      where ClientEvalPredicate(o)
+                      group o by o.CustomerID into g
+                      orderby g.Key
+                      select g.OrderByDescending(x => x.OrderID),
+                assertOrder: true,
+                elementAsserter: CollectionAsserter<Order>(elementAsserter: (e, a) => Assert.Equal(e.OrderID, a.OrderID)));
+        }
+
+        [ConditionalFact]
+        public virtual async Task Client_OrderBy_GroupBy_Group_ordering_works()
+        {
+            await AssertQuery<Order>(
+                os => from o in os
+                      orderby ClientEvalSelector(o)
+                      group o by o.CustomerID into g
+                      orderby g.Key
+                      select g.OrderByDescending(x => x.OrderID),
+                assertOrder: true,
+                elementAsserter: CollectionAsserter<Order>(elementAsserter: (e, a) => Assert.Equal(e.OrderID, a.OrderID)));
+        }
     }
 }
